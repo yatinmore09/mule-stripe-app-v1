@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce" xmlns:stripe="http://www.mulesoft.org/schema/mule/stripe"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/stripe http://www.mulesoft.org/schema/mule/stripe/current/mule-stripe.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd">
+	<stripe:config name="Stripe_Connector_Config" doc:name="Stripe Connector Config" doc:id="ddf421ee-2061-46fd-a3ea-fab2bcf2439a" >
+		<stripe:api-key-connection authorization="sk_test_51LJIjvGFknsFfwKyQTr4RbMRAoeQCEWt0G0RrNNyL6zlQ1ORX3YQgW8DobT87U3HlXcBPB0gu30okr8qG0U7dWmB00sSvSOT8F" />
+	</stripe:config>
+	<salesforce:sfdc-config name="Salesforce_Config" doc:name="Salesforce Config" doc:id="91343340-4c41-4682-b493-8a00b4b6f69b" >
+		<salesforce:basic-connection username="geraldy.tionne@moondoo.org" password="Monalisa@1997" securityToken="bV9V532pYlA8Yiw6Cb0nlGts" url="https://login.salesforce.com/services/Soap/u/53.0"/>
+	</salesforce:sfdc-config>
+</mule>
