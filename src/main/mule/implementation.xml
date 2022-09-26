@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce"
+	xmlns:stripe="http://www.mulesoft.org/schema/mule/stripe"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/stripe http://www.mulesoft.org/schema/mule/stripe/current/mule-stripe.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<http:request-config name="HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="c5e8b9a5-fff9-4bdc-b02b-d57003587dde" >
+		<http:request-connection host="rest.bandsintown.com" protocol="HTTPS"/>
+	</http:request-config>
+	<flow name="creat-account-flow" doc:id="66c7b413-8d05-4f4a-bbd3-5c57904d2c60" >
+		<stripe:on-new-customer-listener doc:name="On new customer listener" doc:id="11bacb3e-993c-4f00-8c72-cb97847ad094" config-ref="Stripe_Connector_Config">
+			<scheduling-strategy >
+				<fixed-frequency />
+			</scheduling-strategy>
+		</stripe:on-new-customer-listener>
+		<logger level="INFO" doc:name="customer.created Event Payload" doc:id="1e1da460-7119-4e19-aa7c-b9a1875cfd89" message='#[payload]'/>
+		<ee:transform doc:name="Create Account Mapping" doc:id="9de6022c-10a3-4cc0-a4d1-0008392287ed" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+[{
+	Name: payload.name,
+	AccountNumber: payload.id,
+	BillingCity: payload.address.city default "",
+	BillingCountry: payload.address.country default "",
+	BillingPostalCode: payload.address.postal_code default "",
+	BillingState: payload.address.state default "",
+	BillingStreet: payload.address.line1 default "" ++ payload.address.line2 default "",
+	Phone: payload.phone,
+	Type: payload.object
+}]]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<salesforce:create doc:name="Create Account" doc:id="25c9fa3f-e8f7-428c-b12c-a4ce7c6fdd92" config-ref="Salesforce_Config" type="Account"/>
+		<logger level="INFO" doc:name="Create Account Success" doc:id="f83a1b03-05a9-4f03-b6b5-2b05d2bd36fe" message="#[output application/json
+&#10;---
+&#10;payload]"/>
+	</flow>
+	<flow name="create-opportunity-flow" doc:id="ef571b7d-5bec-4fc1-90d7-2289f599ccba" >
+		<stripe:on-new-charge-listener doc:name="On new charge listener" doc:id="0c23a04d-377b-4901-a915-770a5b48b674" config-ref="Stripe_Connector_Config">
+			<scheduling-strategy >
+				<fixed-frequency />
+			</scheduling-strategy>
+		</stripe:on-new-charge-listener>
+		<logger level="INFO" doc:name="charge.created Event Payload" doc:id="703e48fb-00bc-467c-a148-8c8b59b8f3ca" message="#[payload]"/>
+		<stripe:get-v1-invoices-by-invoice doc:name="Retrieve an invoice" doc:id="1a010c9f-922f-4710-93f0-66aa8b65aa13" invoice="#[payload.invoice]" config-ref="Stripe_Connector_Config"/>
+		<set-variable value="#[payload]" doc:name="Set Variable invoiceDetails" doc:id="70cfcf85-1b9e-445c-a4e6-08f7e540c9e3" variableName="invoiceDetails"/>
+		<set-variable value="#[&quot;Select Id from Account where AccountNumber = '&quot;++ payload.customer ++ &quot;' limit 1&quot;]" doc:name="Set Variable queryAccountId" doc:id="c41547cd-4622-4f1f-a338-25766d314ac4" variableName="queryAccountId"/>
+		<salesforce:query doc:name="Query AccountId" doc:id="26a23863-0c51-4e5a-bc06-ece1cfe98ec6" config-ref="Salesforce_Config">
+			<salesforce:salesforce-query ><![CDATA[#[vars.queryAccountId]]]></salesforce:salesforce-query>
+		</salesforce:query>
+		<set-variable value="#[payload[0].Id]" doc:name="Set Variable accountId" doc:id="d5b20c14-d822-48f1-b7d0-2835b21c534b" variableName="accountId"/>
+		<ee:transform doc:name="Create Opportunity Mapping" doc:id="231a4292-aae8-4a82-ab76-9675840e3adc" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+[{
+
+AccountId : vars.accountId,
+Amount  : vars.invoiceDetails.lines.data[0].amount / 100 default 0,
+Description : vars.invoiceDetails.lines.data[0].description default "",
+Name : vars.invoiceDetails.customer_name default "",
+Type : vars.invoiceDetails.object,
+CloseDate : now() as Date,
+StageName : "Qualification" 
+}]]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<salesforce:create type="Opportunity" doc:name="Create Invoice" doc:id="a5fddc71-69a1-4623-a550-9a5426b0e194" config-ref="Salesforce_Config"/>
+		<logger level="INFO" doc:name="Create Invoice Success" doc:id="e8cf4034-75f0-4a8e-92bd-35b6a8c10246" message="#[payload]"/>
+	</flow>
+</mule>
+\
