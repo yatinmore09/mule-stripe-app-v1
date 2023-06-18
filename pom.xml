@@ -3,7 +3,7 @@
 	<modelVersion>4.0.0</modelVersion>
 
 	<groupId>com.mycompany</groupId>
-	<artifactId>until-successful-try-scope</artifactId>
+	<artifactId>mule-stripe-app-v1</artifactId>
 	<version>1.0.0</version>
 	<packaging>mule-application</packaging>
 
